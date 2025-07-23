@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// Relative to metadata root (force-app/main/default/*)
+// Map folder name to metadata type
 const metadataTypeMap = {
   'classes': 'ApexClass',
   'triggers': 'ApexTrigger',
@@ -18,30 +18,15 @@ const metadataTypeMap = {
   'applications': 'CustomApplication',
   'tabs': 'CustomTab',
   'labels': 'CustomLabels',
-  'pathAssistants': 'PathAssistant',
   'reportTypes': 'ReportType',
   'notificationtypes': 'CustomNotificationType',
-  // Add more as needed...
+  'flexipages': 'FlexiPage',
 };
 
-// Helper to clean member names
-function extractMember(filePath) {
-  return path.basename(filePath)
-    .replace(/\.xml$/, '')
-    .replace(/\.cls$/, '')
-    .replace(/\.trigger$/, '')
-    .replace(/\.page$/, '')
-    .replace(/\.component$/, '')
-    .replace(/\.app$/, '')
-    .replace(/\.layout$/, '')
-    .replace(/\.object$/, '')
-    .replace(/-meta$/, '');
-}
-
-// Input/output paths
-const [inputFile, outputFile] = process.argv.slice(2);
+// Args
+const [inputFile, outputFile, logFlag] = process.argv.slice(2);
 if (!fs.existsSync(inputFile)) {
-  console.error(`❌ ERROR: Input file "${inputFile}" does not exist.`);
+  console.error(`❌ Input file "${inputFile}" does not exist.`);
   process.exit(1);
 }
 
@@ -52,38 +37,47 @@ const changedFiles = fs.readFileSync(inputFile, 'utf-8')
 const membersByType = {};
 
 changedFiles.forEach(filePath => {
-  // Normalize slashes
   const normalizedPath = filePath.replace(/\\/g, '/');
 
-  // Extract folder name (after force-app/main/default/)
-  const match = normalizedPath.match(/force-app\/main\/default\/([^/]+)\/([^/]+)/);
+  // Extract folder
+  const match = normalizedPath.match(/force-app\/main\/default\/([^/]+)\/(.+)/);
   if (!match) return;
 
-  const [_, folder, fileOrDir] = match;
+  const [_, folder, relativeFile] = match;
 
   const metadataType = metadataTypeMap[folder];
   if (!metadataType) return;
 
-  // Metadata name logic
   let memberName;
+
+  // Handle bundle-based (folder-based) components like LWC or Aura
   if (metadataType === 'LightningComponentBundle' || metadataType === 'AuraComponent') {
-    // Bundle components: use folder name
     const parts = normalizedPath.split('/');
-    memberName = parts[4]; // force-app/main/default/lwc/<COMPONENT_NAME>/file.js
+    memberName = parts[4]; // e.g., 'myLwcComponent'
+  } else if (metadataType === 'FlexiPage' && relativeFile.endsWith('-meta.xml')) {
+    memberName = relativeFile.replace('.flexipage-meta.xml', '');
   } else {
-    memberName = extractMember(fileOrDir);
+    // Strip known extensions
+    memberName = relativeFile
+      .replace(/-meta\.xml$/, '')
+      .replace(/\.(cls|trigger|page|component|app|layout|object|xml)$/i, '');
   }
 
   if (!membersByType[metadataType]) {
     membersByType[metadataType] = new Set();
   }
   membersByType[metadataType].add(memberName);
+
+  // Optional logging
+  if (logFlag === '--log-members-only') {
+    console.log(`📦 ${metadataType}: ${memberName}`);
+  }
 });
 
-// Write to package.xml
+// Convert to XML structure
 const typesXml = Object.entries(membersByType)
   .map(([type, membersSet]) => {
-    const membersXml = [...membersSet]
+    const membersXml = Array.from(membersSet).sort()
       .map(m => `    <members>${m}</members>`)
       .join('\n');
     return `  <types>\n${membersXml}\n    <name>${type}</name>\n  </types>`;

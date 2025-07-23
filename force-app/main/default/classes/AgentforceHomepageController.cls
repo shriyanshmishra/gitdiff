@@ -23,4 +23,3 @@ public with sharing class AgentforceHomepageController {
     }
 }
 
-
