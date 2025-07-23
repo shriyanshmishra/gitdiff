@@ -1,10 +1,6 @@
-name: Salesforce Deploy (Git Diff Based)
+name: Salesforce CI Deployment
 
 on:
-  push:
-    branches:
-      - main
-      - feature/**
   pull_request:
     branches:
       - main
@@ -14,20 +10,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: ✅ Checkout code from GitHub
+      # Checkout source code
+      - name: 🧾 Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Needed to compare across branches
+          fetch-depth: 0  # Required to allow full git diff
 
-      - name: ✅ Install Salesforce CLI
+      # Install Salesforce CLI
+      - name: 📦 Install Salesforce CLI
         run: npm install @salesforce/cli@2.81.9 --global
 
-      - name: 🔐 Write JWT Key to File
+      # Write secret key to a file
+      - name: 🔐 Setup JWT Key
         run: |
           echo "${{ secrets.SERVER_KEY }}" > server.key
           chmod 600 server.key
 
-      - name: 🔐 Authenticate to Salesforce
+      # Authenticate to Salesforce
+      - name: ⚙️ Authenticate to Salesforce
         run: |
           sf auth:jwt:grant \
             --client-id ${{ secrets.CLIENT_ID }} \
@@ -36,26 +36,30 @@ jobs:
             --alias myintegration \
             --instance-url https://login.salesforce.com
 
-      - name: 📄 Detect changed metadata files
-        id: get-diff
+      # Detect changed source files compared to main branch
+      - name: 📄 Detect Changed Metadata Files
+        id: detect-changes
         run: |
           git fetch origin main
-          echo "Detecting file changes against origin/main..."
+          echo "🔍 Getting metadata file differences (origin/main...HEAD)..."
           git diff --name-only origin/main...HEAD > changed_files_raw.txt
           grep '^force-app/main/default/' changed_files_raw.txt > changed_files.txt || true
-          echo "Changed files:"
-          cat changed_files.txt || echo "No metadata changes found"
 
-      - name: ❌ Skip if no metadata changes
+          echo "📁 Changed metadata files:"
+          cat changed_files.txt || echo "No changes detected."
+
+      # If nothing found, end early
+      - name: ❌ Skip if No Metadata Changes Detected
         run: |
           if [ ! -s changed_files.txt ]; then
-            echo "❌ No changed metadata detected. Skipping deployment."
+            echo "✅ No metadata changes to deploy. Skipping deployment step."
             exit 0
           fi
 
-      - name: 🧠 Generate package.xml
+      # Generate package.xml dynamically from changed files
+      - name: ⚙️ Generate package.xml
         run: |
-          mkdir -p src
-          node scripts/generate-package-xml.js changed_files.txt src/package.xml
-          echo "Generated package.xml:"
-          cat src/package.xml
+          mkdir -p manifest
+          node scripts/generate-package-xml.js changed_files.txt manifest/package.xml
+          echo "🧾 Generated package.xml:"
+          cat manifest/package.xml
