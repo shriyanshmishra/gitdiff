@@ -1,0 +1,43 @@
+name: Salesforce Deploy
+
+on:
+  push:
+    branches: [main, feature]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install Salesforce CLI
+        run: npm install @salesforce/cli@2.81.9 --global
+
+      - name: Write JWT key to file
+        run: |
+          echo "${{ secrets.SERVER_KEY }}" > server.key
+          chmod 600 server.key
+
+      - name: Authenticate to Salesforce
+        run: |
+          sf auth:jwt:grant \
+            --client-id ${{ secrets.CLIENT_ID }} \
+            --jwt-key-file ./server.key \
+            --username ${{ secrets.SF_USERNAME }} \
+            --alias myintegration \
+            --instance-url https://orgfarm-425dafba89-dev-ed.develop.my.salesforce.com
+
+      - name: Generate Changed File List
+        id: diff
+        run: |
+          git fetch origin main
+          git diff --name-only origin/main...HEAD | grep '^src/' > changed_files.txt
+
+      - name: Generate package.xml
+        run: |
+          node scripts/generate-package-xml.js changed_files.txt src/package.xml
