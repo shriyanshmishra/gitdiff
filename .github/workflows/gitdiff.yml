@@ -11,23 +11,23 @@ jobs:
 
     steps:
       # Checkout source code
-      - name: 🧾 Checkout Repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0  # Required to allow full git diff
 
       # Install Salesforce CLI
-      - name: 📦 Install Salesforce CLI
+      - name: Install Salesforce CLI
         run: npm install @salesforce/cli@2.81.9 --global
 
       # Write secret key to a file
-      - name: 🔐 Setup JWT Key
+      - name: Setup JWT Key
         run: |
           echo "${{ secrets.SERVER_KEY }}" > server.key
           chmod 600 server.key
 
       # Authenticate to Salesforce
-      - name: ⚙️ Authenticate to Salesforce
+      - name: Authenticate to Salesforce
         run: |
           sf auth:jwt:grant \
             --client-id ${{ secrets.CLIENT_ID }} \
@@ -37,7 +37,7 @@ jobs:
             --instance-url https://login.salesforce.com
 
       # Detect changed source files compared to main branch
-      - name: 📄 Detect Changed Metadata Files
+      - name:  Detect Changed Metadata Files
         id: detect-changes
         run: |
           git fetch origin main
@@ -45,21 +45,21 @@ jobs:
           git diff --name-only origin/main...HEAD > changed_files_raw.txt
           grep '^force-app/main/default/' changed_files_raw.txt > changed_files.txt || true
 
-          echo "📁 Changed metadata files:"
+          echo " Changed metadata files:"
           cat changed_files.txt || echo "No changes detected."
 
       # If nothing found, end early
-      - name: ❌ Skip if No Metadata Changes Detected
+      - name:  Skip if No Metadata Changes Detected
         run: |
           if [ ! -s changed_files.txt ]; then
-            echo "✅ No metadata changes to deploy. Skipping deployment step."
+            echo " No metadata changes to deploy. Skipping deployment step."
             exit 0
           fi
 
       # Generate package.xml dynamically from changed files
-      - name: ⚙️ Generate package.xml
+      - name:  Generate package.xml
         run: |
           mkdir -p manifest
           node scripts/generate-package-xml.js changed_files.txt manifest/package.xml
-          echo "🧾 Generated package.xml:"
+          echo " Generated package.xml:"
           cat manifest/package.xml
