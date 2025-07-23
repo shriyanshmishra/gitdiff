@@ -89,3 +89,4 @@ export default class AgentforceHomepage extends NavigationMixin(LightningElement
 		});
 	}
 }
+
