@@ -42,7 +42,7 @@ jobs:
           git fetch origin main
           echo "Detecting file changes against origin/main..."
           git diff --name-only origin/main...HEAD > changed_files_raw.txt
-          grep '^src/' changed_files_raw.txt > changed_files.txt || true
+          grep '^force-app/main/default/' changed_files_raw.txt > changed_files.txt || true
           echo "Changed files:"
           cat changed_files.txt || echo "No metadata changes found"
 
