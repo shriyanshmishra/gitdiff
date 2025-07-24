@@ -21,6 +21,7 @@ const metadataTypeMap = {
   'reportTypes': 'ReportType',
   'notificationtypes': 'CustomNotificationType',
   'flexipages': 'FlexiPage',
+  'staticresources': 'StaticResource',
 };
 
 // Args
